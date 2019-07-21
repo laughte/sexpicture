@@ -1,3 +1,4 @@
+<!--suppress ALL -->
 <style lang="scss" scoped>
 div#app {
   height: auto;
@@ -451,6 +452,7 @@ $scrcolor: rgba(226, 189, 191, 0.9);
       v-show="showtopbarflag"
       @getTopBarfunc="getTopBarFunc"
       @backhomefunc="backhome()"
+      @getmore="getmore()"
     />
     <el-row>
       <el-col :class="{'actpicture':actflag}" class="allpicture" :span="laycont">
@@ -524,7 +526,22 @@ $scrcolor: rgba(226, 189, 191, 0.9);
 <script>
 import TopBar from "./components/TopBar.vue";
 import downloadtool from "./components/downloadtool";
-import fs, { constants } from "fs";
+
+let request = require("request");
+/*******
+ "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.12) Gecko/20080219 Firefox/2.0.0.12 Navigator/9.0.0.6",
+ "Mozilla/5.0 (iPhone; U; CPU like Mac OS X) AppleWebKit/420.1 (KHTML, like Gecko) Version/3.0 Mobile/4A93 Safari/419.3",
+ "Mozilla/5.0 (Windows; U; Windows NT 5.2) AppleWebKit/525.13 (KHTML, like Gecko) Version/3.1 Safari/525.13"
+ */
+let UserAgents = [
+  "Mozilla/5.0 (Windows; U; Windows NT 5.2) AppleWebKit/525.13 (KHTML, like Gecko) Chrome/0.2.149.27 Safari/525.13"
+
+];
+let user_agent = UserAgents[Math.floor(Math.random() * UserAgents.length)];
+let headers = { "User-Agent": user_agent };
+
+import fs, { promises } from "fs";
+import { Promise, timeout } from 'q';
 let file = "./picturehref.json";
 
 export default {
@@ -556,9 +573,107 @@ export default {
       arrowflag: true,
       settimer: "",
       xcont: 0,
+      alldatas: []
     };
   },
   methods: {
+    open_url(resolve) {
+      let url = "http://jinwandafiji.club/pw/thread.php?fid=14";
+      let opts = { url, headers };
+      // console.log(user_agent)
+      request(opts, (err, res, body) => {
+        if (err) console.error(err);
+        this.find_href(body,resolve);
+        // resolve(this.find_href(body))
+        // console.log(body)
+      });
+    },
+    open_imgUrl(url, callback) {
+      let opts = { url, headers };
+      // console.log(user_agent)
+      request(opts, (err, res, body) => {
+        if (err) console.error(err);
+        callback(body);
+      });
+    },
+    find_href(html,resolve) {
+      // 匹配页面中的链接
+      // let b = /<a href =""/gi
+      // let b=/<a href=(\"html_data([^<>"\']*)\"|\'([^<>"\']*)\')[^<>]*>/gi;
+      let hreflist = [];
+      let b = /html_data([^<>"\']*)/gi;
+      let hrefs = html.match(b);
+      hrefs.forEach((e, i) => {
+        if (i % 2 === 0) {
+          let href = "http://k6.csnjcbnxdnb.xyz/pw/" + e;
+          hreflist.unshift(href);
+        }
+      });
+      console.log(hreflist.length)
+      this.find_img(hreflist,resolve);
+      // resolve(this.find_img(hreflist))
+    },
+    find_img(hreflist,resolve) {
+      // console.log(hreflist.length)
+      let alldatalist = []
+      // for(let i=0 ;i<hreflist.length;i++){
+      hreflist.forEach(e => {
+      //   console.log(e);
+        this.open_imgUrl(e, data => {
+          if (data === null||data===undefined){
+              return false;
+          }else {
+              // 匹配img 的 src 属性
+              let srclist = [];
+              let b = /http:\/\/p8.urlpic.club\/([^<>"\']*)\.jpg/gi;
+              let srcs = data.match(b);
+              // console.log(srcs)
+              if (srcs === null||srcs ===undefined){
+                  return false;
+              } else {
+                  srcs.forEach((e, i) => {
+                      if (i % 2 === 0) {
+                          srclist.unshift(e);
+                      }
+                  });
+              }
+              console.log(srclist);
+              // 匹配 img 的 title 值
+              let t = /\<span id="([^\d\[\]<>"\']*)"\>([^\d\[\]<>"\']*)\[([^<>"\']*)\]\<\/span\>/gi;
+              let titles = data.match(t);
+              if (titles === null||titles===undefined){
+                  return false
+              } else{
+                  alldatalist.unshift({
+                      title: titles[0],
+                      href: srclist,
+                      star: 0,
+                      collect: false,
+                      delete: false,
+                      download: false
+                  });
+              }
+          }
+          // console.log(this.alldatas)
+        });
+      });
+      setTimeout(() => {
+        this.alldatas = alldatalist
+        this.comover(alldatalist,resolve)
+      }, 10000);
+      this.alldatas = alldatalist
+      this.comover(alldatalist,resolve)
+
+    },
+    comover(data,resolve){
+        if(data.length !==0){
+            console.log(`本次加载了${data.length}套`)
+            resolve(console.log(`本次加载了${data.length}套`))
+        }
+
+    },
+    
+
     getimgsrc() {
       fs.readFile(file, (err, data) => {
         if (err) console.error(err);
@@ -653,7 +768,7 @@ export default {
 
     // topbar 按钮点击事件
     backhome() {
-      this.animateCSS('.allpicture','bounceInRight');
+      this.animateCSS(".allpicture", "bounceInRight");
       this.folderflag = false;
       this.laycont = 24;
       this.actflag = false;
@@ -664,6 +779,66 @@ export default {
       //   this.animateGroupCSS(e, "bounceInUp");
       // });
     },
+    getmore() {
+      this.folderflag = false;
+      this.actflag = false;
+      this.allHrefs = [];
+      this.animateCSS('.allpicture','bounceInRight');
+      // let imgdoms = document.querySelectorAll(".tImgCard");
+      // imgdoms.forEach(e => {
+      //   this.animateGroupCSS(e, "bounceInUp");
+      // });
+      console.log(this.alldatas.length)
+      if (this.alldatas.length === 0) {
+
+        // this.open_url();
+        // this.allHrefs = this.alldatas;
+        // this.allHrefsTemp.push.apply(this.allHrefsTemp,this.alldatas)
+
+          let f1 = ()=>{
+              return new Promise((resolve)=>{
+
+                      this.open_url(resolve)
+                      // resolve(this.open_url(resolve))
+                      console.log("f1 ok")
+
+
+              })
+          }
+          let f2 = ()=>{
+              return new Promise((resolve)=>{
+                  this.allHrefs = this.alldatas;
+                  console.log("f2 ok")
+                  resolve("f2 ok")
+
+              })
+          }
+          let f3 = ()=>{
+              return new Promise((resolve)=>{
+                  this.allHrefsTemp.push.apply(this.allHrefsTemp,this.alldatas);
+                  console.log("f3 ok")
+                  resolve("f3 ok")
+
+              })
+          }
+          let f4 = ()=>{
+              return new Promise((resolve)=>{
+                  this.saveFile()
+                  console.log("f4 ok")
+                  resolve("f4 ok")
+
+              })
+          }
+        f1().then(f2).then(f3).then(f4)
+
+
+
+        
+      } else {
+        this.allHrefs = this.alldatas;
+      }
+    },
+
 
     // 我的收藏 collect 点击事件 and 回收中心点击事件
     getTopBarFunc(mainstr) {
@@ -671,19 +846,12 @@ export default {
       this.laycont = 24;
       this.actflag = false;
       this.allHrefs = [];
-      let imgdoms = document.querySelectorAll('.tImgCard');
+      let imgdoms = document.querySelectorAll(".tImgCard");
+
       this.allHrefsTemp.forEach(e => {
-        if (mainstr === "deleted") {
-          this.animateCSS('.allpicture','bounceInRight');
-          // imgdoms.forEach((e) => {
-          //   this.animateGroupCSS(e, "bounceInUp");
-          // });
-          if (e.delete === true) {
-            this.allHrefs.unshift(e);
-          }
-        } else if (mainstr === "collect") {
+        if (mainstr === "collect") {
           // this.animateCSS('.allpicture','bounceInRight');
-          imgdoms.forEach((e) => {
+          imgdoms.forEach(e => {
             this.animateGroupCSS(e, "bounceInUp");
           });
           if (e.collect === true) {
@@ -691,7 +859,7 @@ export default {
           }
         } else if (mainstr === "download") {
           // this.animateCSS(".allpicture", "bounceInRight");
-          imgdoms.forEach((e) => {
+          imgdoms.forEach(e => {
             this.animateGroupCSS(e, "bounceInUp");
           });
           if (e.download === true) {
@@ -797,8 +965,7 @@ export default {
   },
   beforeMount() {},
   mounted() {
-    this.animateCSS('.allpicture','bounceInRight');
- 
+    this.animateCSS(".allpicture", "bounceInRight");
   },
   beforeUpdate() {},
   updated() {},

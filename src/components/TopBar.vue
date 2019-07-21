@@ -69,7 +69,7 @@ li.el-menu-item:hover{
     <el-menu-item index="2"  @click="$emit('getTopBarfunc','collect')"><i class="el-icon-star-off"></i>我的收藏</el-menu-item>
     <!-- <el-menu-item index="3" @click="$emit('getTopBarfunc','deleted')"><i class="el-icon-delete"></i>回收中心</el-menu-item> -->
     <el-menu-item index="4" @click="$emit('getTopBarfunc','download')"><i  class="el-icon-download"></i>下载中心</el-menu-item>
-    <el-menu-item index="5"><i class="el-icon-loading"></i>加载更多</el-menu-item>
+    <el-menu-item index="5"  @click="$emit('getmore')"><i class="el-icon-loading"></i>加载更多</el-menu-item>
   </el-menu>
   <div class="closeicon">
     <i class="el-icon-minus" @click="minfunc()"></i>
