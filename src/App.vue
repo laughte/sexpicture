@@ -48,6 +48,10 @@ $scrcolor: rgba(226, 189, 191, 0.9);
   background: rgba(234, 204, 235, 0.1);
 }
 
+.boxblur{
+  filter: blur(20px)
+}
+
 .el-row {
   // display: none;
 
@@ -315,7 +319,7 @@ $scrcolor: rgba(226, 189, 191, 0.9);
     height: 100vh;
     z-index: 100;
     text-align: center;
-    background: burlywood;
+    // background: burlywood;
     // linear-gradient(
     //     rgba(216, 191, 142, 0.4) 50%,
     //     rgba(81, 134, 170, 0.3) 50%
@@ -326,6 +330,16 @@ $scrcolor: rgba(226, 189, 191, 0.9);
     //     rgba(81, 134, 170, 0.4) 50%
     //   );
     background-size: 30px 30px;
+    &::before{
+      content: '';
+      position: absolute;
+      top: 0;bottom: 0;left: 0;right: 0;
+      filter: blur(20px);
+      margin: -30px;
+      opacity: 0.2;
+      background: $color1 0 / cover fixed;
+      z-index: -1;
+    }
     $smboxH: 0vh;
     .el-icon-close {
       border-radius: 50%;
@@ -334,14 +348,16 @@ $scrcolor: rgba(226, 189, 191, 0.9);
       -webkit-app-region: no-drag;
       font-size: 1.6em;
       position: absolute;
-      margin-top: 1vh;
-      margin-left: 5px;
+      top: 10px;
+      right: 10px;
       color: white;
+      opacity: 0.6;
       transition: ease-in-out 0.2s;
       // filter: Glow(color = wihte,strength = 255)
     }
     .el-icon-close:hover {
       transform: rotate(90deg);
+      opacity: 1;
     }
     .arrowicon {
       -webkit-app-region: no-drag;
@@ -451,8 +467,8 @@ $scrcolor: rgba(226, 189, 191, 0.9);
       ref="topbar"
       v-show="showtopbarflag"
       @getTopBarfunc="getTopBarFunc"
-      @backhomefunc="backhome()"
-      @getmore="getmore()"
+      @backhomefunc="backhome"
+      @getmore="getmore"
     />
     <el-row>
       <el-col :class="{'actpicture':actflag}" class="allpicture" :span="laycont">
@@ -467,16 +483,16 @@ $scrcolor: rgba(226, 189, 191, 0.9);
             </el-button>
           </i>
           <div class="iconbox" @click="showthisFolder(e)">
-            <div class="top-msg">{{e.title}}</div>
+            <div class="top-msg" v-html="e.title"></div>
             <downloadtool :downtooldata="e" @savefile="saveFile()" />
           </div>
         </div>
       </el-col>
       <el-col class="folderpicture animated zoomIn" :span="24" v-show="folderflag">
-        <div ref="foldPic" class="imgcard" v-for="(e,i) in hrefs.href" :key="i">
+        <div  class="imgcard" v-for="(e,i) in hrefs.href" :key="i">
           <img class="front" :src="e" alt @click="showlgpic(e)" />
           <div class="back" @click="showlgpic(e)">
-            <p>{{hrefs.title}}</p>
+            <p v-html="hrefs.title"></p>
             <div>
               <el-button size="medium" type="danger" round @click.stop.prevent>喜欢</el-button>
               <el-button size="medium" type="warning" round @click.stop.prevent="deletepic(i)">删除</el-button>
@@ -535,13 +551,12 @@ let request = require("request");
  */
 let UserAgents = [
   "Mozilla/5.0 (Windows; U; Windows NT 5.2) AppleWebKit/525.13 (KHTML, like Gecko) Chrome/0.2.149.27 Safari/525.13"
-
 ];
 let user_agent = UserAgents[Math.floor(Math.random() * UserAgents.length)];
 let headers = { "User-Agent": user_agent };
 
-import fs, { promises } from "fs";
-import { Promise, timeout } from 'q';
+import fs, { promises, constants } from "fs";
+import { Promise, timeout } from "q";
 let file = "./picturehref.json";
 
 export default {
@@ -583,7 +598,7 @@ export default {
       // console.log(user_agent)
       request(opts, (err, res, body) => {
         if (err) console.error(err);
-        this.find_href(body,resolve);
+        this.find_href(body, resolve);
         // resolve(this.find_href(body))
         // console.log(body)
       });
@@ -596,7 +611,7 @@ export default {
         callback(body);
       });
     },
-    find_href(html,resolve) {
+    find_href(html, resolve) {
       // 匹配页面中的链接
       // let b = /<a href =""/gi
       // let b=/<a href=(\"html_data([^<>"\']*)\"|\'([^<>"\']*)\')[^<>]*>/gi;
@@ -609,70 +624,67 @@ export default {
           hreflist.unshift(href);
         }
       });
-      console.log(hreflist.length)
-      this.find_img(hreflist,resolve);
+      console.log(hreflist.length);
+      this.find_img(hreflist, resolve);
       // resolve(this.find_img(hreflist))
     },
-    find_img(hreflist,resolve) {
+    find_img(hreflist, resolve) {
       // console.log(hreflist.length)
-      let alldatalist = []
+      let alldatalist = [];
       // for(let i=0 ;i<hreflist.length;i++){
       hreflist.forEach(e => {
-      //   console.log(e);
+        //   console.log(e);
         this.open_imgUrl(e, data => {
-          if (data === null||data===undefined){
+          if (data === null || data === undefined) {
+            return false;
+          } else {
+            // 匹配img 的 src 属性
+            let srclist = [];
+            let b = /http:\/\/p8.urlpic.club\/([^<>"\']*)\.jpg/gi;
+            let srcs = data.match(b);
+            // console.log(srcs)
+            if (srcs === null || srcs === undefined) {
               return false;
-          }else {
-              // 匹配img 的 src 属性
-              let srclist = [];
-              let b = /http:\/\/p8.urlpic.club\/([^<>"\']*)\.jpg/gi;
-              let srcs = data.match(b);
-              // console.log(srcs)
-              if (srcs === null||srcs ===undefined){
-                  return false;
-              } else {
-                  srcs.forEach((e, i) => {
-                      if (i % 2 === 0) {
-                          srclist.unshift(e);
-                      }
-                  });
-              }
-              console.log(srclist);
-              // 匹配 img 的 title 值
-              let t = /\<span id="([^\d\[\]<>"\']*)"\>([^\d\[\]<>"\']*)\[([^<>"\']*)\]\<\/span\>/gi;
-              let titles = data.match(t);
-              if (titles === null||titles===undefined){
-                  return false
-              } else{
-                  alldatalist.unshift({
-                      title: titles[0],
-                      href: srclist,
-                      star: 0,
-                      collect: false,
-                      delete: false,
-                      download: false
-                  });
-              }
+            } else {
+              srcs.forEach((e, i) => {
+                if (i % 2 === 0) {
+                  srclist.unshift(e);
+                }
+              });
+            }
+            console.log(srclist);
+            // 匹配 img 的 title 值
+            let t = /\<span id="([^\d\[\]<>"\']*)"\>([^\d\[\]<>"\']*)\[([^<>"\']*)\]\<\/span\>/gi;
+            let titles = data.match(t);
+            if (titles === null || titles === undefined) {
+              return false;
+            } else {
+              alldatalist.unshift({
+                title: titles[0],
+                href: srclist,
+                star: 0,
+                collect: false,
+                delete: false,
+                download: false
+              });
+            }
           }
           // console.log(this.alldatas)
         });
       });
       setTimeout(() => {
-        this.alldatas = alldatalist
-        this.comover(alldatalist,resolve)
+        this.alldatas = alldatalist;
+        this.comover(alldatalist, resolve);
       }, 10000);
-      this.alldatas = alldatalist
-      this.comover(alldatalist,resolve)
-
+      this.alldatas = alldatalist;
+      this.comover(alldatalist, resolve);
     },
-    comover(data,resolve){
-        if(data.length !==0){
-            console.log(`本次加载了${data.length}套`)
-            resolve(console.log(`本次加载了${data.length}套`))
-        }
-
+    comover(data, resolve) {
+      if (data.length !== 0) {
+        // console.log(`本次加载了${data.length}套`)
+        resolve(console.log(`本次加载了${data.length}批`));
+      }
     },
-    
 
     getimgsrc() {
       fs.readFile(file, (err, data) => {
@@ -711,6 +723,7 @@ export default {
       this.laycont = 0;
       this.hrefs = e;
       this.actflag = true;
+
       // console.log(this.$refs.allimgdom)
     },
     deletepic(i) {
@@ -765,6 +778,15 @@ export default {
 
       element.addEventListener("animationend", handleAnimationEnd);
     },
+    //给元素添加和移除模糊效果
+    nodeBlur(e,f){
+      const node = document.querySelector(e);
+      if(f===true){
+        node.classList.add('boxblur')
+      }else{
+        node.classList.remove('boxblur')
+      }
+    },
 
     // topbar 按钮点击事件
     backhome() {
@@ -782,63 +804,59 @@ export default {
     getmore() {
       this.folderflag = false;
       this.actflag = false;
-      this.allHrefs = [];
-      this.animateCSS('.allpicture','bounceInRight');
-      // let imgdoms = document.querySelectorAll(".tImgCard");
-      // imgdoms.forEach(e => {
-      //   this.animateGroupCSS(e, "bounceInUp");
-      // });
-      console.log(this.alldatas.length)
+      this.laycont = 24;
+      this.allHrefs = this.alldatas;
+      // this.animateCSS(".allpicture", "bounceInRight");
+      let imgdoms = document.querySelectorAll(".tImgCard");
+      imgdoms.forEach(e => {
+        this.animateGroupCSS(e, "bounceInUp");
+      });
       if (this.alldatas.length === 0) {
+        let f1 = () => {
+          return new Promise(resolve => {
+            this.open_url(resolve);
+            // resolve(this.open_url(resolve))
+            console.log("f1 ok");
+          });
+        };
+        let f2 = () => {
+          return new Promise(resolve => {
+            this.allHrefs = this.alldatas;
+            console.log("f2 ok");
+            resolve("f2 ok");
+          });
+        };
+        let f3 = () => {
+          return new Promise(resolve => {
+            // this.allHrefsTemp.push.apply(this.allHrefsTemp,this.alldatas);
+            let newarr = this.allHrefsTemp.concat(this.alldatas);
+            console.log("f3 ok");
+            resolve(newarr);
+          });
+        };
+        let f4 = newarr => {
+          return new Promise(resolve => {
+            this.allHrefsTemp = [...new Set(newarr)];
+            console.log("f4 ok");
+            resolve(this.allHrefsTemp);
+          });
 
-        // this.open_url();
-        // this.allHrefs = this.alldatas;
-        // this.allHrefsTemp.push.apply(this.allHrefsTemp,this.alldatas)
-
-          let f1 = ()=>{
-              return new Promise((resolve)=>{
-
-                      this.open_url(resolve)
-                      // resolve(this.open_url(resolve))
-                      console.log("f1 ok")
-
-
-              })
-          }
-          let f2 = ()=>{
-              return new Promise((resolve)=>{
-                  this.allHrefs = this.alldatas;
-                  console.log("f2 ok")
-                  resolve("f2 ok")
-
-              })
-          }
-          let f3 = ()=>{
-              return new Promise((resolve)=>{
-                  this.allHrefsTemp.push.apply(this.allHrefsTemp,this.alldatas);
-                  console.log("f3 ok")
-                  resolve("f3 ok")
-
-              })
-          }
-          let f4 = ()=>{
-              return new Promise((resolve)=>{
-                  this.saveFile()
-                  console.log("f4 ok")
-                  resolve("f4 ok")
-
-              })
-          }
-        f1().then(f2).then(f3).then(f4)
-
-
-
-        
-      } else {
-        this.allHrefs = this.alldatas;
+        };
+        let f5 = () => {
+          return new Promise(resolve => {
+            this.saveFile();
+            console.log("f4 ok");
+            resolve("f4 ok");
+          });
+        };
+        f1()
+          .then(f2)
+          .then(f3)
+          .then(f4)
+          .then(f5);
       }
+      
     },
-
 
     // 我的收藏 collect 点击事件 and 回收中心点击事件
     getTopBarFunc(mainstr) {
@@ -870,11 +888,17 @@ export default {
     },
 
     showlgpic(e) {
+      // const node = document.querySelector('.folderpicture');
+      // node.classList.add('boxblur')
+      this.nodeBlur('.folderpicture',true)
       this.showlgpicflag = true;
       this.lghref = e;
       this.showtopbarflag = false;
     },
     closethis() {
+      // const node = document.querySelector('.folderpicture');
+      // node.classList.remove('boxblur')
+      this.nodeBlur('.folderpicture',false)
       this.showlgpicflag = false;
       this.showtopbarflag = true;
       clearInterval(this.settimer);
